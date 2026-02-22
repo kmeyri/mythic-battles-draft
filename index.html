@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mythic Battles Draft Randomizer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #1a1625;
+      --surface: #252033;
+      --border: #3d3654;
+      --text: #e8e4ef;
+      --accent: #b8860b;
+      --accent-dim: #8b6914;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem 2rem;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 1rem 0;
+      color: var(--accent);
+    }
+    .sets {
+      display: flex;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .sets label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .sets input[type="checkbox"] {
+      width: 1.1rem;
+      height: 1.1rem;
+      accent-color: var(--accent);
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .toggle-label { font-weight: 500; }
+    .toggle-row label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-row input[type="radio"] { accent-color: var(--accent); }
+    .map-filters {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+    .map-filters .toggle-label { font-weight: 500; }
+    .map-filters label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; user-select: none; }
+    .map-filters input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: var(--accent); }
+    .sort-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+    .sort-row .toggle-label { font-weight: 500; }
+    .sort-row label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; user-select: none; }
+    .sort-row input[type="radio"] { accent-color: var(--accent); }
+    .btn {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      padding: 0.6rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+    }
+    .btn:hover { background: var(--accent-dim); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error {
+      color: #e07a7a;
+      margin-bottom: 1rem;
+    }
+    .draft-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      max-width: 32rem;
+    }
+    .draft-section h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 0 0.75rem 0;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35rem;
+    }
+    .draft-section ul {
+      margin: 0;
+      padding-left: 1.25rem;
+      line-height: 1.6;
+    }
+    .draft-section li { margin-bottom: 0.2rem; }
+    .empty-note { color: #888; font-style: italic; }
+    .unit-meta { color: #9a94a8; font-size: 0.9em; }
+    .map-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      max-width: 32rem;
+    }
+    .map-section h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem 0; color: var(--accent); border: none; padding: 0; }
+    .map-section .map-name { margin: 0 0 0.75rem 0; color: var(--text); }
+    .map-section img { display: block; max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border); }
+    .map-section .change-map-wrap { margin-top: 0.75rem; }
+    .btn-small { padding: 0.4rem 0.9rem; font-size: 0.9rem; }
+
+    @media print {
+      body { background: #fff; color: #1a1a1a; padding: 0.5in 0.75in; font-size: 11pt; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      .print-title { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem 0; color: #1a1a1a; }
+      .print-subtitle { font-size: 0.95rem; color: #444; margin-bottom: 1rem; }
+      .draft-section {
+        background: #fff;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        max-width: none;
+        page-break-inside: avoid;
+      }
+      .draft-section h2 {
+        color: #1a1a1a;
+        border-bottom-color: #333;
+        font-size: 1.05rem;
+        margin-bottom: 0.5rem;
+      }
+      .draft-section ul { padding-left: 1.5rem; line-height: 1.5; }
+      .unit-meta { color: #444; font-size: 0.95em; }
+      .map-section { background: #fff; border-color: #333; padding: 0.75rem 1rem; margin-bottom: 1rem; max-width: none; page-break-inside: avoid; }
+      .map-section h2 { color: #1a1a1a; }
+      .map-section .map-name { color: #1a1a1a; }
+      .map-section img { max-width: 100%; border-color: #333; }
+    }
+    .print-only { display: none; }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <h1>Mythic Battles Draft Randomizer</h1>
+    <div class="sets">
+      <label><input type="checkbox" id="isfet" value="Isfet"> Isfet</label>
+      <label><input type="checkbox" id="pantheon" value="Pantheon"> Pantheon</label>
+      <label><input type="checkbox" id="ragnarok" value="Ragnarok"> Ragnarok</label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Top tier:</span>
+      <label><input type="radio" name="topTier" value="god" id="topGod" checked> God</label>
+      <label><input type="radio" name="topTier" value="titan" id="topTitan"> Titan</label>
+    </div>
+    <div class="map-filters">
+      <span class="toggle-label">Maps:</span>
+      <label><input type="checkbox" id="mapLand" value="land" checked> Land</label>
+      <label><input type="checkbox" id="mapSea" value="sea"> Sea</label>
+    </div>
+    <button type="button" class="btn" id="createBtn">Create Draft Pool</button>
+    <div id="error" class="error" style="display: none;"></div>
+  </div>
+
+  <div class="print-only print-title" id="printTitle" aria-hidden="true">Mythic Battles — Draft Pool</div>
+  <div class="print-only print-subtitle" id="printSubtitle" aria-hidden="true"></div>
+
+  <div class="sort-row no-print" id="sortRow" style="display: none;">
+    <span class="toggle-label">Sort by:</span>
+    <label><input type="radio" name="sortBy" value="set" id="sortSet" checked> Set / Expansion</label>
+    <label><input type="radio" name="sortBy" value="rp" id="sortRp"> RP</label>
+    <button type="button" class="btn btn-small" id="saveDraftBtn">Download PDF</button>
+    <button type="button" class="btn btn-small" id="shareDraftBtn">Save & get link</button>
+    <span id="shareLinkWrap" style="display: none; margin-left: 0.5rem;">
+      <a id="shareLink" href="#" target="_blank" rel="noopener"></a>
+      <button type="button" class="btn btn-small" id="copyLinkBtn">Copy link</button>
+    </span>
+  </div>
+
+  <div class="map-section" id="mapSection" style="display: none;">
+    <h2>Game Board</h2>
+    <p class="map-name" id="mapName"></p>
+    <img id="mapImage" src="" alt="" />
+    <div class="change-map-wrap no-print">
+      <button type="button" class="btn btn-small" id="changeMapBtn">Change map</button>
+    </div>
+  </div>
+
+  <div class="draft-section" id="godSection">
+    <h2>Gods</h2>
+    <ul id="godList"><li class="empty-note">Select sets and press Create Draft Pool.</li></ul>
+  </div>
+  <div class="draft-section" id="titanSection" style="display: none;">
+    <h2>Titans</h2>
+    <ul id="titanList"><li class="empty-note">Select Titan and sets, then Create Draft Pool.</li></ul>
+  </div>
+  <div class="draft-section" id="monsterHeroSection">
+    <h2>Monsters / Heroes</h2>
+    <ul id="monsterHeroList"><li class="empty-note">Select sets and press Create Draft Pool.</li></ul>
+  </div>
+  <div class="draft-section" id="troopsSection">
+    <h2>Troops</h2>
+    <ul id="troopsList"><li class="empty-note">Select sets and press Create Draft Pool.</li></ul>
+  </div>
+
+  <script>
+    const SET_FILES = { Isfet: 'Isfet.csv', Pantheon: 'Pantheon.csv', Ragnarok: 'Ragnarok.csv' };
+    const SECTIONS = ['TITANS', 'GODS', 'MONSTERS', 'HEROES', 'TROOPS'];
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = msg ? 'block' : 'none';
+    }
+
+    function parseCsv(text, setName) {
+      const lines = text.split(/\r?\n/);
+      const bySection = { TITANS: [], GODS: [], MONSTERS: [], HEROES: [], TROOPS: [] };
+      let current = null;
+      let skipNext = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (skipNext) { skipNext = false; continue; }
+        const cells = line.split(',').map(c => c.trim());
+        const sectionCell = cells.find(c => SECTIONS.includes(c));
+        if (sectionCell) {
+          current = sectionCell;
+          skipNext = true; // skip column header row
+          continue;
+        }
+        if (!current || !bySection[current]) continue;
+        // TROOPS have "Support Only" at column index 3 — exclude if it contains "only"
+        if (current === 'TROOPS' && cells.length > 3) {
+          const supportOnly = (cells[3] || '').toLowerCase();
+          if (supportOnly.includes('only')) continue;
+        }
+        // Data row: column 0 = Box, column 2 = NAME
+        if (cells.length >= 3 && cells[0] && cells[2] && cells[2] !== 'NAME' && cells[2] !== 'NAME (#)') {
+          const name = cells[2].trim();
+          if (name && !name.startsWith('Power')) {
+            bySection[current].push({ name, set: setName, box: cells[0].trim(), rp: cells[1] ? cells[1].trim() : '' });
+          }
+        }
+      }
+      return bySection;
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    /** Parse maps.csv: header Set,Expansion,Board,Sea,Filename. Return array of { set, board, sea, filename }. */
+    function parseMapsCsv(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const maps = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(',').map(c => c.trim());
+        if (cells.length >= 5 && cells[0] && cells[4]) {
+          maps.push({ set: cells[0], expansion: cells[1], board: cells[2], sea: (cells[3] || '').toLowerCase(), filename: cells[4] });
+        }
+      }
+      return maps;
+    }
+
+    /** Pick `count` units at random, with weights so sets we've picked from less are slightly favored (reduces heavy skew). */
+    function pickBalanced(poolBySet, count) {
+      const setNames = Object.keys(poolBySet);
+      let pool = [];
+      setNames.forEach(s => {
+        poolBySet[s] = shuffle([...poolBySet[s]]);
+        poolBySet[s].forEach(u => pool.push({ name: u.name, set: s, box: u.box || '', rp: u.rp || '' }));
+      });
+      pool = shuffle(pool);
+      const result = [];
+      const pickedPerSet = {};
+      setNames.forEach(s => { pickedPerSet[s] = 0; });
+      for (let n = 0; n < count && pool.length; n++) {
+        const totalWeight = pool.reduce((sum, u) => sum + 1 / (1 + pickedPerSet[u.set]), 0);
+        let r = Math.random() * totalWeight;
+        let i = 0;
+        for (; i < pool.length; i++) {
+          r -= 1 / (1 + pickedPerSet[pool[i].set]);
+          if (r <= 0) break;
+        }
+        const chosen = pool.splice(i, 1)[0];
+        result.push(chosen);
+        pickedPerSet[chosen.set]++;
+      }
+      return result;
+    }
+
+    function renderList(ulId, items) {
+      const ul = document.getElementById(ulId);
+      ul.innerHTML = '';
+      if (!items.length) {
+        const li = document.createElement('li');
+        li.className = 'empty-note';
+        li.textContent = 'No units in selected sets.';
+        ul.appendChild(li);
+        return;
+      }
+      items.forEach(({ name, set, box, rp }) => {
+        const li = document.createElement('li');
+        const namePart = rp ? `${name} - ${rp} RP` : name;
+        const meta = [set, box].filter(Boolean).join(', ');
+        li.innerHTML = meta ? `${namePart} <span class="unit-meta">(${meta})</span>` : namePart;
+        ul.appendChild(li);
+      });
+    }
+
+    let currentDraft = { gods: [], titans: [], monsterHeroes: [], troops: [], useTitan: false };
+    let currentMapName = '';
+    let currentMapImageSrc = '';
+
+    function sortBySetExpansion(a, b) {
+      if (a.set !== b.set) return (b.set || '').localeCompare(a.set || '');
+      if (a.box !== b.box) return (b.box || '').localeCompare(a.box || '');
+      return (b.name || '').localeCompare(a.name || '');
+    }
+    function sortByRP(a, b) {
+      const rpA = parseInt(a.rp, 10) || 0;
+      const rpB = parseInt(b.rp, 10) || 0;
+      if (rpA !== rpB) return rpB - rpA;
+      return (b.name || '').localeCompare(a.name || '');
+    }
+
+    function applySort(sortBy) {
+      const cmp = sortBy === 'rp' ? sortByRP : sortBySetExpansion;
+      const gods = [...currentDraft.gods].sort(cmp);
+      const titans = [...currentDraft.titans].sort(cmp);
+      const monsterHeroes = [...currentDraft.monsterHeroes].sort(cmp);
+      const troops = [...currentDraft.troops].sort(cmp);
+      if (currentDraft.useTitan) {
+        renderList('titanList', titans);
+      } else {
+        renderList('godList', gods);
+      }
+      renderList('monsterHeroList', monsterHeroes);
+      renderList('troopsList', troops);
+    }
+
+    function updatePrintSubtitle(chosen) {
+      const el = document.getElementById('printSubtitle');
+      if (!el) return;
+      const date = new Date().toLocaleDateString(undefined, { dateStyle: 'medium' });
+      el.textContent = chosen && chosen.length ? `Sets: ${chosen.join(', ')}  ·  ${date}` : date;
+    }
+
+    document.getElementById('createBtn').addEventListener('click', async () => {
+      const isfet = document.getElementById('isfet').checked;
+      const pantheon = document.getElementById('pantheon').checked;
+      const ragnarok = document.getElementById('ragnarok').checked;
+      const chosen = [];
+      if (isfet) chosen.push('Isfet');
+      if (pantheon) chosen.push('Pantheon');
+      if (ragnarok) chosen.push('Ragnarok');
+
+      showError('');
+      if (chosen.length === 0) {
+        showError('Please select at least one set.');
+        return;
+      }
+
+      const btn = document.getElementById('createBtn');
+      btn.disabled = true;
+
+      try {
+        const useTitan = document.getElementById('topTitan').checked;
+        const godsBySet = {};
+        const titansBySet = {};
+        const monsterHeroesBySet = {};
+        const troopsBySet = {};
+        chosen.forEach(s => {
+          godsBySet[s] = [];
+          titansBySet[s] = [];
+          monsterHeroesBySet[s] = [];
+          troopsBySet[s] = [];
+        });
+
+        const [unitRes, mapsRes] = await Promise.all([
+          Promise.all(chosen.map(s => fetch(SET_FILES[s]))),
+          fetch('maps.csv')
+        ]);
+        for (let i = 0; i < chosen.length; i++) {
+          const res = unitRes[i];
+          const setName = chosen[i];
+          if (!res.ok) throw new Error(`Could not load ${SET_FILES[setName]}. Run a local server from this folder (e.g. "python -m http.server 8080") and open http://localhost:8080`);
+          const data = parseCsv(await res.text(), setName);
+          godsBySet[setName] = data.GODS;
+          titansBySet[setName] = data.TITANS;
+          monsterHeroesBySet[setName] = [...data.MONSTERS, ...data.HEROES];
+          troopsBySet[setName] = data.TROOPS;
+        }
+
+        const mapSection = document.getElementById('mapSection');
+        const mapNameEl = document.getElementById('mapName');
+        const mapImg = document.getElementById('mapImage');
+        if (mapsRes.ok) {
+          const landChecked = document.getElementById('mapLand').checked;
+          const seaChecked = document.getElementById('mapSea').checked;
+          const mapsText = await mapsRes.text();
+          const allMaps = parseMapsCsv(mapsText);
+          const eligibleMaps = allMaps.filter(m => {
+            if (!chosen.includes(m.set)) return false;
+            const isLand = m.sea === 'no';
+            const isSea = m.sea === 'yes';
+            return (landChecked && isLand) || (seaChecked && isSea);
+          });
+          if (eligibleMaps.length) {
+            const picked = eligibleMaps[Math.floor(Math.random() * eligibleMaps.length)];
+            currentMapName = picked.board;
+            currentMapImageSrc = 'maps/' + picked.filename;
+            mapNameEl.textContent = picked.board;
+            mapImg.src = currentMapImageSrc;
+            mapImg.alt = picked.board;
+            mapSection.style.display = '';
+          } else {
+            currentMapName = '';
+            currentMapImageSrc = '';
+            mapSection.style.display = 'none';
+          }
+        } else {
+          currentMapName = '';
+          currentMapImageSrc = '';
+          mapSection.style.display = 'none';
+        }
+
+        const needTop = 5, needMonsterHero = 15, needTroops = 5;
+        const totalGods = chosen.reduce((sum, s) => sum + godsBySet[s].length, 0);
+        const totalTitans = chosen.reduce((sum, s) => sum + titansBySet[s].length, 0);
+        const totalMonsterHero = chosen.reduce((sum, s) => sum + monsterHeroesBySet[s].length, 0);
+        const totalTroops = chosen.reduce((sum, s) => sum + troopsBySet[s].length, 0);
+
+        const topLabel = useTitan ? 'Titans' : 'Gods';
+        const totalTop = useTitan ? totalTitans : totalGods;
+        if (totalTop < needTop) showError(`Not enough ${topLabel} in selected sets (have ${totalTop}, need ${needTop}).`);
+        else if (totalMonsterHero < needMonsterHero) showError(`Not enough Monsters/Heroes (have ${totalMonsterHero}, need ${needMonsterHero}).`);
+        else if (totalTroops < needTroops) showError(`Not enough Troops (have ${totalTroops}, need ${needTroops}).`);
+        else {
+          const godSection = document.getElementById('godSection');
+          const titanSection = document.getElementById('titanSection');
+          if (useTitan) {
+            const titans = pickBalanced(titansBySet, needTop);
+            currentDraft = { gods: [], titans, monsterHeroes: [], troops: [], useTitan: true };
+            titanSection.style.display = '';
+            godSection.style.display = 'none';
+          } else {
+            const gods = pickBalanced(godsBySet, needTop);
+            currentDraft = { gods, titans: [], monsterHeroes: [], troops: [], useTitan: false };
+            godSection.style.display = '';
+            titanSection.style.display = 'none';
+          }
+          currentDraft.monsterHeroes = pickBalanced(monsterHeroesBySet, needMonsterHero);
+          currentDraft.troops = pickBalanced(troopsBySet, needTroops);
+          document.getElementById('sortRow').style.display = '';
+          applySort(document.querySelector('input[name="sortBy"]:checked').value);
+          updatePrintSubtitle(chosen);
+        }
+      } catch (e) {
+        showError(e.message || 'Something went wrong.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.querySelectorAll('input[name="sortBy"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (currentDraft.monsterHeroes.length || currentDraft.troops.length) applySort(radio.value);
+      });
+    });
+
+    document.getElementById('changeMapBtn').addEventListener('click', async () => {
+      const chosen = [];
+      if (document.getElementById('isfet').checked) chosen.push('Isfet');
+      if (document.getElementById('pantheon').checked) chosen.push('Pantheon');
+      if (document.getElementById('ragnarok').checked) chosen.push('Ragnarok');
+      if (chosen.length === 0) return;
+      const landChecked = document.getElementById('mapLand').checked;
+      const seaChecked = document.getElementById('mapSea').checked;
+      const mapSection = document.getElementById('mapSection');
+      const mapNameEl = document.getElementById('mapName');
+      const mapImg = document.getElementById('mapImage');
+      try {
+        const res = await fetch('maps.csv');
+        if (!res.ok) return;
+        const allMaps = parseMapsCsv(await res.text());
+        const eligibleMaps = allMaps.filter(m => {
+          if (!chosen.includes(m.set)) return false;
+          const isLand = m.sea === 'no';
+          const isSea = m.sea === 'yes';
+          return (landChecked && isLand) || (seaChecked && isSea);
+        });
+        if (eligibleMaps.length) {
+          const picked = eligibleMaps[Math.floor(Math.random() * eligibleMaps.length)];
+          currentMapName = picked.board;
+          currentMapImageSrc = 'maps/' + picked.filename;
+          mapNameEl.textContent = picked.board;
+          mapImg.src = currentMapImageSrc;
+          mapImg.alt = picked.board;
+          mapSection.style.display = '';
+        } else {
+          currentMapImageSrc = '';
+          mapSection.style.display = 'none';
+        }
+      } catch (_) {}
+    });
+
+    function formatUnit(u) {
+      const namePart = u.rp ? `${u.name} - ${u.rp} RP` : u.name;
+      const meta = [u.set, u.box].filter(Boolean).join(', ');
+      return meta ? `${namePart} (${meta})` : namePart;
+    }
+
+    function getPdfBlob() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const margin = 15;
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const lineH = 5;
+      let y = margin;
+
+      const addLine = (text, fontSize) => {
+        if (fontSize) doc.setFontSize(fontSize);
+        const maxW = pageW - margin * 2;
+        const lines = doc.splitTextToSize(text, maxW);
+        lines.forEach(line => {
+          if (y + lineH > pageH - margin) { doc.addPage(); y = margin; }
+          doc.text(line, margin, y);
+          y += lineH;
+        });
+        if (fontSize) doc.setFontSize(11);
+      };
+      const addSpace = () => { y += lineH * 0.6; };
+
+      const sortBy = document.querySelector('input[name="sortBy"]:checked').value;
+      const cmp = sortBy === 'rp' ? sortByRP : sortBySetExpansion;
+      const gods = [...currentDraft.gods].sort(cmp);
+      const titans = [...currentDraft.titans].sort(cmp);
+      const monsterHeroes = [...currentDraft.monsterHeroes].sort(cmp);
+      const troops = [...currentDraft.troops].sort(cmp);
+      const subtitle = document.getElementById('printSubtitle').textContent;
+      const topUnits = currentDraft.useTitan ? titans : gods;
+      const topLabel = currentDraft.useTitan ? 'Titans' : 'Gods';
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(16);
+      addLine('Mythic Battles — Draft Pool', 16);
+      doc.setFontSize(11);
+      addLine(subtitle || '', 11);
+      addSpace();
+
+      if (currentMapName) {
+        doc.setFont('helvetica', 'bold');
+        addLine('Game Board', 11);
+        doc.setFont('helvetica', 'normal');
+        addLine(currentMapName, 11);
+        if (currentMapImageSrc) {
+          return fetch(currentMapImageSrc).then(res => res.blob()).then(blob => {
+            return new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                try {
+                  const dataUrl = reader.result;
+                  const img = new Image();
+                  img.onload = () => {
+                    const maxW = pageW - margin * 2;
+                    const usableHeight = pageH - margin * 2;
+                    const reservedForLists = 190;
+                    const maxImgH = Math.max(30, usableHeight - reservedForLists);
+                    const imgRatio = img.naturalWidth / img.naturalHeight;
+                    let drawW = maxW;
+                    let drawH = drawW / imgRatio;
+                    if (drawH > maxImgH) {
+                      drawH = maxImgH;
+                      drawW = drawH * imgRatio;
+                    }
+                    if (drawW > maxW) {
+                      drawW = maxW;
+                      drawH = drawW / imgRatio;
+                    }
+                    doc.addImage(dataUrl, 'JPEG', margin, y, drawW, drawH);
+                    y += drawH + lineH;
+                    addSpace();
+                    addSection(doc, addLine, addSpace, lineH, pageH, margin, topLabel, null, topUnits);
+                    addSection(doc, addLine, addSpace, lineH, pageH, margin, 'Monsters / Heroes', null, monsterHeroes);
+                    addSection(doc, addLine, addSpace, lineH, pageH, margin, 'Troops', null, troops);
+                    resolve(doc.output('blob'));
+                  };
+                  img.onerror = () => reject();
+                  img.src = dataUrl;
+                } catch (e) { reject(e); }
+              };
+              reader.onerror = () => reject();
+              reader.readAsDataURL(blob);
+            });
+          }).catch(() => Promise.resolve(buildPdfRest(doc, addLine, addSpace, lineH, pageH, margin, topLabel, topUnits, monsterHeroes, troops)));
+        }
+        addSpace();
+      }
+      return Promise.resolve(buildPdfRest(doc, addLine, addSpace, lineH, pageH, margin, topLabel, topUnits, monsterHeroes, troops));
+    }
+
+    function addSection(doc, addLine, addSpace, lineH, pageH, margin, title, subTitle, units) {
+      doc.setFont('helvetica', 'bold');
+      addLine(title, 11);
+      if (subTitle) addLine(subTitle, 11);
+      doc.setFont('helvetica', 'normal');
+      units.forEach(u => addLine('• ' + formatUnit(u), 11));
+      addSpace();
+    }
+
+    function buildPdfRest(doc, addLine, addSpace, lineH, pageH, margin, topLabel, topUnits, monsterHeroes, troops) {
+      addSection(doc, addLine, addSpace, lineH, pageH, margin, topLabel, null, topUnits);
+      addSection(doc, addLine, addSpace, lineH, pageH, margin, 'Monsters / Heroes', null, monsterHeroes);
+      addSection(doc, addLine, addSpace, lineH, pageH, margin, 'Troops', null, troops);
+      return doc.output('blob');
+    }
+
+    document.getElementById('saveDraftBtn').addEventListener('click', () => {
+      const btn = document.getElementById('saveDraftBtn');
+      btn.disabled = true;
+      getPdfBlob().then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'mythic-battles-draft-' + new Date().toISOString().slice(0, 10) + '.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+      }).catch(() => {}).finally(() => { btn.disabled = false; });
+    });
+
+    document.getElementById('shareDraftBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('shareDraftBtn');
+      const wrap = document.getElementById('shareLinkWrap');
+      const linkEl = document.getElementById('shareLink');
+      btn.disabled = true;
+      wrap.style.display = 'none';
+      showError('');
+      try {
+        const blob = await getPdfBlob();
+        const form = new FormData();
+        form.append('file', blob, 'mythic-battles-draft.pdf');
+        const res = await fetch('https://api.anonymousfiles.io/', { method: 'POST', body: form });
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        const shareUrl = (data.url || '').replace(/\/$/, '');
+        if (!shareUrl) throw new Error('No link returned');
+        linkEl.href = shareUrl;
+        linkEl.textContent = shareUrl;
+        wrap.style.display = 'inline';
+      } catch (e) {
+        showError('Could not get share link (check connection or try Download PDF instead).');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      const link = document.getElementById('shareLink').href;
+      navigator.clipboard.writeText(link).then(() => { document.getElementById('copyLinkBtn').textContent = 'Copied!'; setTimeout(() => { document.getElementById('copyLinkBtn').textContent = 'Copy link'; }, 2000); });
+    });
+  </script>
+</body>
+</html>
