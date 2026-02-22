@@ -202,11 +202,6 @@
     <label><input type="radio" name="sortBy" value="set" id="sortSet" checked> Set / Expansion</label>
     <label><input type="radio" name="sortBy" value="rp" id="sortRp"> RP</label>
     <button type="button" class="btn btn-small" id="saveDraftBtn">Download PDF</button>
-    <button type="button" class="btn btn-small" id="shareDraftBtn">Save & get link</button>
-    <span id="shareLinkWrap" style="display: none; margin-left: 0.5rem;">
-      <a id="shareLink" href="#" target="_blank" rel="noopener"></a>
-      <button type="button" class="btn btn-small" id="copyLinkBtn">Copy link</button>
-    </span>
   </div>
 
   <div class="map-section" id="mapSection" style="display: none;">
@@ -666,37 +661,6 @@
         a.click();
         URL.revokeObjectURL(url);
       }).catch(() => {}).finally(() => { btn.disabled = false; });
-    });
-
-    document.getElementById('shareDraftBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('shareDraftBtn');
-      const wrap = document.getElementById('shareLinkWrap');
-      const linkEl = document.getElementById('shareLink');
-      btn.disabled = true;
-      wrap.style.display = 'none';
-      showError('');
-      try {
-        const blob = await getPdfBlob();
-        const form = new FormData();
-        form.append('file', blob, 'mythic-battles-draft.pdf');
-        const res = await fetch('https://api.anonymousfiles.io/', { method: 'POST', body: form });
-        if (!res.ok) throw new Error('Upload failed');
-        const data = await res.json();
-        const shareUrl = (data.url || '').replace(/\/$/, '');
-        if (!shareUrl) throw new Error('No link returned');
-        linkEl.href = shareUrl;
-        linkEl.textContent = shareUrl;
-        wrap.style.display = 'inline';
-      } catch (e) {
-        showError('Could not get share link (check connection or try Download PDF instead).');
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    document.getElementById('copyLinkBtn').addEventListener('click', () => {
-      const link = document.getElementById('shareLink').href;
-      navigator.clipboard.writeText(link).then(() => { document.getElementById('copyLinkBtn').textContent = 'Copied!'; setTimeout(() => { document.getElementById('copyLinkBtn').textContent = 'Copy link'; }, 2000); });
     });
   </script>
 </body>
