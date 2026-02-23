@@ -680,6 +680,7 @@
         }
 
         const needTop = 5, needMonsterHero = 15, needTroops = 5;
+        const minTitans = 4;
         const totalGods = chosen.reduce((sum, s) => sum + godsBySet[s].length, 0);
         const totalTitans = chosen.reduce((sum, s) => sum + titansBySet[s].length, 0);
         const totalMonsterHero = chosen.reduce((sum, s) => sum + monsterHeroesBySet[s].length, 0);
@@ -687,14 +688,16 @@
 
         const topLabel = useTitan ? 'Titans' : 'Gods';
         const totalTop = useTitan ? totalTitans : totalGods;
-        if (totalTop < needTop) showError(`Not enough ${topLabel} in selected sets (have ${totalTop}, need ${needTop}).`);
+        const needTopActual = useTitan ? Math.min(needTop, totalTitans) : needTop;
+        const minTopRequired = useTitan ? minTitans : needTop;
+        if (totalTop < minTopRequired) showError(`Not enough ${topLabel} in selected sets (have ${totalTop}, need at least ${minTopRequired}).`);
         else if (totalMonsterHero < needMonsterHero) showError(`Not enough Monsters/Heroes (have ${totalMonsterHero}, need ${needMonsterHero}).`);
         else if (totalTroops < needTroops) showError(`Not enough Troops (have ${totalTroops}, need ${needTroops}).`);
         else {
           const godSection = document.getElementById('godSection');
           const titanSection = document.getElementById('titanSection');
           if (useTitan) {
-            const titans = pickBalanced(titansBySet, needTop);
+            const titans = pickBalanced(titansBySet, needTopActual);
             currentDraft = { gods: [], titans, monsterHeroes: [], troops: [], useTitan: true };
             titanSection.style.display = '';
             godSection.style.display = 'none';
