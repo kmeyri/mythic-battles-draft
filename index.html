@@ -31,21 +31,50 @@
     }
     .sets {
       display: flex;
-      gap: 1.25rem;
+      gap: 1.75rem;
       flex-wrap: wrap;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: 1rem;
     }
-    .sets label {
+    .set-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .set-group > label {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       cursor: pointer;
       user-select: none;
     }
-    .sets input[type="checkbox"] {
+    .set-group input[type="checkbox"] {
       width: 1.1rem;
       height: 1.1rem;
+      accent-color: var(--accent);
+    }
+    .expansion-row {
+      display: none;
+      margin-left: 1.6rem;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      color: #c0bcce;
+    }
+    .expansion-row span {
+      font-weight: 500;
+      margin-right: 0.25rem;
+    }
+    .expansion-row label {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .expansion-row input[type="checkbox"] {
+      width: 0.9rem;
+      height: 0.9rem;
       accent-color: var(--accent);
     }
     .toggle-row {
@@ -176,9 +205,18 @@
   <div class="no-print">
     <h1>Mythic Battles Draft Randomizer</h1>
     <div class="sets">
-      <label><input type="checkbox" id="isfet" value="Isfet"> Isfet</label>
-      <label><input type="checkbox" id="pantheon" value="Pantheon"> Pantheon</label>
-      <label><input type="checkbox" id="ragnarok" value="Ragnarok"> Ragnarok</label>
+      <div class="set-group">
+        <label><input type="checkbox" id="isfet" value="Isfet"> Isfet</label>
+        <div class="expansion-row" id="isfetExpansions"></div>
+      </div>
+      <div class="set-group">
+        <label><input type="checkbox" id="pantheon" value="Pantheon"> Pantheon</label>
+        <div class="expansion-row" id="pantheonExpansions"></div>
+      </div>
+      <div class="set-group">
+        <label><input type="checkbox" id="ragnarok" value="Ragnarok"> Ragnarok</label>
+        <div class="expansion-row" id="ragnarokExpansions"></div>
+      </div>
     </div>
     <div class="toggle-row">
       <span class="toggle-label">Top tier:</span>
@@ -233,6 +271,7 @@
   <script>
     const SET_FILES = { Isfet: 'Isfet.csv', Pantheon: 'Pantheon.csv', Ragnarok: 'Ragnarok.csv' };
     const SECTIONS = ['TITANS', 'GODS', 'MONSTERS', 'HEROES', 'TROOPS'];
+    const EXPANSION_CACHE = {};
 
     function showError(msg) {
       const el = document.getElementById('error');
@@ -293,6 +332,87 @@
         }
       }
       return maps;
+    }
+
+    // Parse expansions (Box codes) from a unit CSV
+    function parseExpansionsFromCsv(text) {
+      const lines = text.split(/\r?\n/);
+      const expansions = new Set();
+      let current = null;
+      let skipNext = false;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (skipNext) { skipNext = false; continue; }
+        const cells = line.split(',').map(c => c.trim());
+        const sectionCell = cells.find(c => SECTIONS.includes(c));
+        if (sectionCell) {
+          current = sectionCell;
+          skipNext = true;
+          continue;
+        }
+        if (!current || !SECTIONS.includes(current)) continue;
+        if (cells.length && cells[0] && cells[0] !== 'Box') {
+          expansions.add(cells[0].trim());
+        }
+      }
+      return Array.from(expansions).sort();
+    }
+
+    function renderExpansions(setName, codes) {
+      const container = document.getElementById(setName.toLowerCase() + 'Expansions');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!codes.length) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'flex';
+      const label = document.createElement('span');
+      label.textContent = 'Expansions:';
+      container.appendChild(label);
+      codes.forEach(code => {
+        const lab = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = code;
+        input.checked = true;
+        lab.appendChild(input);
+        lab.appendChild(document.createTextNode(' ' + code));
+        container.appendChild(lab);
+      });
+    }
+
+    function ensureExpansionsUI(setName) {
+      const key = setName;
+      const container = document.getElementById(setName.toLowerCase() + 'Expansions');
+      if (!container) return;
+      if (EXPANSION_CACHE[key]) {
+        renderExpansions(setName, EXPANSION_CACHE[key]);
+        return;
+      }
+      const csvPath = SET_FILES[setName];
+      if (!csvPath) return;
+      fetch(csvPath)
+        .then(res => res.ok ? res.text() : Promise.reject())
+        .then(text => {
+          const codes = parseExpansionsFromCsv(text);
+          EXPANSION_CACHE[key] = codes;
+          renderExpansions(setName, codes);
+        })
+        .catch(() => {
+          container.style.display = 'none';
+        });
+    }
+
+    function getSelectedExpansions(setName) {
+      const container = document.getElementById(setName.toLowerCase() + 'Expansions');
+      if (!container) return null;
+      const boxes = container.querySelectorAll('input[type="checkbox"]');
+      if (!boxes.length) return null;
+      const selected = Array.from(boxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+      return selected;
     }
 
     /** Pick `count` units at random, with weights so sets we've picked from less are slightly favored (reduces heavy skew). */
@@ -379,6 +499,20 @@
       el.textContent = chosen && chosen.length ? `Sets: ${chosen.join(', ')}  ·  ${date}` : date;
     }
 
+    ['Isfet', 'Pantheon', 'Ragnarok'].forEach(setName => {
+      const cb = document.getElementById(setName.toLowerCase());
+      if (!cb) return;
+      cb.addEventListener('change', () => {
+        const container = document.getElementById(setName.toLowerCase() + 'Expansions');
+        if (!container) return;
+        if (cb.checked) {
+          ensureExpansionsUI(setName);
+        } else {
+          container.style.display = 'none';
+        }
+      });
+    });
+
     document.getElementById('createBtn').addEventListener('click', async () => {
       const isfet = document.getElementById('isfet').checked;
       const pantheon = document.getElementById('pantheon').checked;
@@ -419,10 +553,13 @@
           const setName = chosen[i];
           if (!res.ok) throw new Error(`Could not load ${SET_FILES[setName]}. Run a local server from this folder (e.g. "python -m http.server 8080") and open http://localhost:8080`);
           const data = parseCsv(await res.text(), setName);
-          godsBySet[setName] = data.GODS;
-          titansBySet[setName] = data.TITANS;
-          monsterHeroesBySet[setName] = [...data.MONSTERS, ...data.HEROES];
-          troopsBySet[setName] = data.TROOPS;
+          const selectedExp = getSelectedExpansions(setName);
+          const filterByExp = (arr) =>
+            !selectedExp || !selectedExp.length ? arr : arr.filter(u => selectedExp.includes(u.box));
+          godsBySet[setName] = filterByExp(data.GODS);
+          titansBySet[setName] = filterByExp(data.TITANS);
+          monsterHeroesBySet[setName] = filterByExp([...data.MONSTERS, ...data.HEROES]);
+          troopsBySet[setName] = filterByExp(data.TROOPS);
         }
 
         const mapSection = document.getElementById('mapSection');
