@@ -293,6 +293,7 @@
     }
 
     function parseCsv(text, setName) {
+      text = (text || '').replace(/^\uFEFF/, '');
       const lines = text.split(/\r?\n/);
       const bySection = { TITANS: [], GODS: [], MONSTERS: [], HEROES: [], TROOPS: [] };
       let current = null;
@@ -301,14 +302,16 @@
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (skipNext) { skipNext = false; continue; }
-        const cells = line.split(',').map(c => c.trim());
-        const sectionCell = cells.find(c => SECTIONS.includes(c));
+        const cells = line.split(',').map(c => (c || '').trim());
+        const sectionCell = cells.find(c => SECTIONS.includes((c || '').trim()));
         if (sectionCell) {
-          current = sectionCell;
+          current = sectionCell.trim();
           skipNext = true; // skip column header row
           continue;
         }
         if (!current || !bySection[current]) continue;
+        // Skip header-like rows (Expansion/Box, RP, NAME) in case layout differs per section
+        if (cells[1] === 'Expansion Code' || cells[1] === 'Box' || cells[3] === 'NAME' || cells[3] === 'NAME (#)') continue;
         // TROOPS have "Support Only" at column index 4 — exclude if it contains "only"
         if (current === 'TROOPS' && cells.length > 4) {
           const supportOnly = (cells[4] || '').toLowerCase();
@@ -349,6 +352,7 @@
 
     // Parse expansions from unit CSV: column 0 = Expansion (name), 1 = Expansion Code. Return [{ code, name }] unique by code.
     function parseExpansionsFromCsv(text) {
+      text = (text || '').replace(/^\uFEFF/, '');
       const lines = text.split(/\r?\n/);
       const byCode = new Map();
       let current = null;
@@ -356,17 +360,19 @@
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (skipNext) { skipNext = false; continue; }
-        const cells = line.split(',').map(c => c.trim());
-        const sectionCell = cells.find(c => SECTIONS.includes(c));
+        const cells = line.split(',').map(c => (c || '').trim());
+        const sectionCell = cells.find(c => SECTIONS.includes((c || '').trim()));
         if (sectionCell) {
-          current = sectionCell;
+          current = sectionCell.trim();
           skipNext = true;
           continue;
         }
         if (!current || !SECTIONS.includes(current)) continue;
-        if (cells.length >= 2 && cells[1] && cells[1] !== 'Expansion Code' && cells[1] !== 'Box' && cells[1] !== 'RP') {
+        // Skip header rows
+        if (cells[1] === 'Expansion Code' || cells[1] === 'Box' || cells[1] === 'RP' || cells[3] === 'NAME' || cells[3] === 'NAME (#)') continue;
+        if (cells.length >= 2 && cells[1]) {
           const code = cells[1].trim();
-          const name = (cells[0] || code).trim();
+          const name = (cells[0] && cells[0].trim()) ? cells[0].trim() : (byCode.get(code) || code);
           byCode.set(code, name);
         }
       }
