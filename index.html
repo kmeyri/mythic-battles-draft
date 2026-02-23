@@ -572,6 +572,8 @@
           const allMaps = parseMapsCsv(mapsText);
           const eligibleMaps = allMaps.filter(m => {
             if (!chosen.includes(m.set)) return false;
+            const selectedExp = getSelectedExpansions(m.set);
+            if (selectedExp && selectedExp.length > 0 && !selectedExp.includes(m.expansion)) return false;
             const isLand = m.sea === 'no';
             const isSea = m.sea === 'yes';
             return (landChecked && isLand) || (seaChecked && isSea);
@@ -656,6 +658,8 @@
         const allMaps = parseMapsCsv(await res.text());
         const eligibleMaps = allMaps.filter(m => {
           if (!chosen.includes(m.set)) return false;
+          const selectedExp = getSelectedExpansions(m.set);
+          if (selectedExp && selectedExp.length > 0 && !selectedExp.includes(m.expansion)) return false;
           const isLand = m.sea === 'no';
           const isSea = m.sea === 'yes';
           return (landChecked && isLand) || (seaChecked && isSea);
