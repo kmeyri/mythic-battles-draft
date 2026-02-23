@@ -350,7 +350,30 @@
       return maps;
     }
 
-    // Parse expansions from unit CSV: column 0 = Expansion (name), 1 = Expansion Code. Return [{ code, name }] unique by code.
+    // Parse "Expansion List" column from header block: return ordered expansion names, or [] if column missing.
+    function parseExpansionListOrder(text) {
+      text = (text || '').replace(/^\uFEFF/, '');
+      const lines = text.split(/\r?\n/);
+      if (lines.length < 2) return [];
+      const headerCells = lines[0].split(',').map(c => (c || '').trim());
+      const colIndex = headerCells.findIndex(c => c === 'Expansion List');
+      if (colIndex < 0) return [];
+      const orderedNames = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(',').map(c => (c || '').trim());
+        if (cells.length >= 4 && cells[1] && cells[2] && /^\d+$/.test(cells[2]) && cells[3] &&
+            !SECTIONS.includes(cells[1]) && cells[1] !== 'Expansion Code' && cells[1] !== 'Box') break;
+        const val = (cells[colIndex] || '').trim();
+        if (val) orderedNames.push(val);
+      }
+      return orderedNames;
+    }
+
+    function normalizeExpansionName(s) {
+      return (s || '').trim().toLowerCase().replace(/'/g, '').replace(/\s+/g, ' ');
+    }
+
+    // Parse expansions from unit CSV: column 0 = Expansion (name), 1 = Expansion Code. Return [{ code, name }] unique by code, ordered by Expansion List when present.
     function parseExpansionsFromCsv(text) {
       text = (text || '').replace(/^\uFEFF/, '');
       const lines = text.split(/\r?\n/);
@@ -376,7 +399,28 @@
           byCode.set(code, name);
         }
       }
-      return Array.from(byCode.entries()).map(([code, name]) => ({ code, name })).sort((a, b) => a.code.localeCompare(b.code));
+      const orderedNames = parseExpansionListOrder(text);
+      if (orderedNames.length === 0) {
+        return Array.from(byCode.entries()).map(([code, name]) => ({ code, name })).sort((a, b) => a.code.localeCompare(b.code));
+      }
+      const nameToCode = new Map();
+      byCode.forEach((name, code) => {
+        nameToCode.set(name, code);
+        nameToCode.set(normalizeExpansionName(name), code);
+      });
+      const seen = new Set();
+      const result = [];
+      for (const listName of orderedNames) {
+        const code = nameToCode.get(listName) || nameToCode.get(normalizeExpansionName(listName));
+        if (code && !seen.has(code)) {
+          seen.add(code);
+          result.push({ code, name: byCode.get(code) });
+        }
+      }
+      byCode.forEach((name, code) => {
+        if (!seen.has(code)) result.push({ code, name });
+      });
+      return result;
     }
 
     function renderExpansions(setName, list) {
