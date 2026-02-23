@@ -334,14 +334,14 @@
       return a;
     }
 
-    /** Parse maps.csv: header Set,Expansion,Board,Sea,Filename. Return array of { set, board, sea, filename }. */
+    /** Parse maps.csv: header Set,Expansion,Expansion Code,Board,Sea,Filename. Return array of { set, expansion (code), board, sea, filename }. */
     function parseMapsCsv(text) {
       const lines = text.split(/\r?\n/).filter(l => l.trim());
       const maps = [];
       for (let i = 1; i < lines.length; i++) {
         const cells = lines[i].split(',').map(c => c.trim());
-        if (cells.length >= 5 && cells[0] && cells[4]) {
-          maps.push({ set: cells[0], expansion: cells[1], board: cells[2], sea: (cells[3] || '').toLowerCase(), filename: cells[4] });
+        if (cells.length >= 6 && cells[0] && cells[5]) {
+          maps.push({ set: cells[0], expansion: cells[2], board: cells[3], sea: (cells[4] || '').toLowerCase(), filename: cells[5] });
         }
       }
       return maps;
